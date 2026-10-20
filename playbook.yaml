@@ -1,0 +1,8 @@
+---
+- name: Install and configure Redis
+  hosts: redis
+  become: true
+  gather_facts: true
+  roles:
+    - role: redis
+      when: ansible_facts['os_family'] == "Debian"

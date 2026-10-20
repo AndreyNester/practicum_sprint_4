@@ -1,0 +1,11 @@
+# Managed by Ansible.
+bind {{ redis_bind }}
+protected-mode {{ redis_protected_mode }}
+port {{ redis_port }}
+dir {{ redis_data_dir | to_json }}
+databases {{ redis_databases }}
+requirepass {{ redis_password | to_json }}
+appendonly {{ redis_appendonly }}
+daemonize no
+supervised systemd
+logfile ""
