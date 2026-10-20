@@ -1,0 +1,77 @@
+---
+- name: Configure Redis on Debian family systems
+  when: ansible_facts['os_family'] == "Debian"
+  block:
+    - name: Check required Redis password
+      ansible.builtin.assert:
+        that:
+          - redis_password is defined
+          - redis_password is string
+          - redis_password | length > 0
+        fail_msg: Define a nonempty redis_password through Ansible Vault.
+      no_log: true
+
+    - name: Install Redis without starting the service before configuration
+      ansible.builtin.apt:
+        name: "{{ redis_package_name }}"
+        state: present
+        policy_rc_d: 101
+
+    - name: Create Redis data directory
+      ansible.builtin.file:
+        path: "{{ redis_data_dir }}"
+        state: directory
+        owner: "{{ redis_user }}"
+        group: "{{ redis_group }}"
+        mode: "0750"
+
+    - name: Create Redis configuration directory
+      ansible.builtin.file:
+        path: "{{ redis_config_dir }}"
+        state: directory
+        owner: "{{ redis_user }}"
+        group: "{{ redis_group }}"
+        mode: "0750"
+
+    - name: Deploy Redis configuration
+      ansible.builtin.template:
+        src: redis.conf.j2
+        dest: "{{ redis_config_file }}"
+        owner: "{{ redis_user }}"
+        group: "{{ redis_group }}"
+        mode: "0640"
+      no_log: true
+      diff: false
+      notify: Restart Redis
+
+    - name: Create systemd override directory
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ redis_service_name }}.service.d"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure systemd access to the Redis data directory
+      ansible.builtin.template:
+        src: override.conf.j2
+        dest: "/etc/systemd/system/{{ redis_service_name }}.service.d/override.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      register: redis_systemd_override
+      notify: Restart Redis
+
+    - name: Reload systemd after changing the unit configuration
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: redis_systemd_override is changed
+
+    - name: Apply configuration before ensuring service is running
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start Redis and enable startup at boot
+      ansible.builtin.systemd_service:
+        name: "{{ redis_service_name }}"
+        state: started
+        enabled: true

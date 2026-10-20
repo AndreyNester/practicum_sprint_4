@@ -1,0 +1,5 @@
+# Managed by Ansible.
+[Service]
+ReadWritePaths={{ redis_data_dir }}
+ExecStart=
+ExecStart=/usr/bin/redis-server {{ redis_config_file }} --supervised systemd --daemonize no
